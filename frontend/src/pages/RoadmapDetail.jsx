@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchRoadmapById } from '../store/slices/roadmapSlice';
+import { fetchRoadmapById, fetchNodeDetail, clearNodeDetail } from '../store/slices/roadmapSlice';
 import { fetchRoadmapProgress, updateNodeProgress } from '../store/slices/progressSlice';
 import { addNotification } from '../store/slices/uiSlice';
 import RoadmapVisualization from '../components/RoadmapVisualization';
+import NodeDetailPanel from '../components/NodeDetailPanel';
 
 /**
  * RoadmapDetail page
@@ -20,7 +21,7 @@ const RoadmapDetail = () => {
   const { currentProgress, isLoading: progressLoading } = useSelector(state => state.progress);
   
   const [selectedNode, setSelectedNode] = useState(null);
-  const [isResourcePanelOpen, setIsResourcePanelOpen] = useState(false);
+  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
   
   // Fetch roadmap and progress data
   useEffect(() => {
@@ -28,6 +29,11 @@ const RoadmapDetail = () => {
       dispatch(fetchRoadmapById(id));
       dispatch(fetchRoadmapProgress(id));
     }
+    
+    // Clear node detail when unmounting
+    return () => {
+      dispatch(clearNodeDetail());
+    };
   }, [dispatch, id]);
   
   // Loading state
@@ -35,8 +41,49 @@ const RoadmapDetail = () => {
   
   // Handle node click in visualization
   const handleNodeClick = (node) => {
+    // Clear previous node detail when a new node is selected or deselected
+    dispatch(clearNodeDetail());
     setSelectedNode(node);
-    setIsResourcePanelOpen(!!node);
+    
+    if (node) {
+      setIsDetailPanelOpen(true);
+      
+      // Log the node that was clicked for debugging
+      console.log('Node clicked:', node);
+      
+      // Fetch detailed content for the selected node
+      dispatch(fetchNodeDetail({ 
+        roadmapId: id, 
+        nodeId: node.id 
+      }))
+      .unwrap()
+      .then(result => {
+        console.log('Node detail result:', result);
+        if (!result.data || !result.data.nodeDetail || !result.data.nodeDetail.found) {
+          // If no detail found, show a notification
+          dispatch(addNotification({
+            message: 'No additional resources found for this topic. We\'ll try to add more soon!',
+            type: 'info'
+          }));
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching node detail:', error);
+        dispatch(addNotification({
+          message: `Error fetching topic details: ${error.message || 'Unknown error'}`,
+          type: 'error'
+        }));
+      });
+    } else {
+      setIsDetailPanelOpen(false);
+    }
+  };
+  
+  // Handle closing the detail panel
+  const handleCloseDetailPanel = () => {
+    setIsDetailPanelOpen(false);
+    setSelectedNode(null);
+    dispatch(clearNodeDetail());
   };
   
   // Toggle node completion status
@@ -244,6 +291,16 @@ const RoadmapDetail = () => {
                     Click on a node in the roadmap to view details and resources.
                   </p>
                 </div>
+              </div>
+            )}
+            
+            {/* Detailed Node Content Panel (shows when a node is selected) */}
+            {isDetailPanelOpen && selectedNode && (
+              <div className="mt-6">
+                <NodeDetailPanel 
+                  selectedNode={selectedNode} 
+                  onClose={handleCloseDetailPanel} 
+                />
               </div>
             )}
           </div>

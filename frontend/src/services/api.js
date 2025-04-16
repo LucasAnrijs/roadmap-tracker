@@ -62,7 +62,8 @@ const apiService = {
   // Scraper endpoints (admin only)
   scraper: {
     scrapeAllRoadmaps: () => api.post('/scrape/roadmaps'),
-    updateRoadmap: (roadmapId) => api.post(`/scrape/roadmaps/${roadmapId}`)
+    updateRoadmap: (roadmapId) => api.post(`/scrape/roadmaps/${roadmapId}`),
+    scrapeNodeDetail: (roadmapId, nodeId) => api.get(`/scrape/roadmaps/${roadmapId}/nodes/${nodeId}`)
   }
 };
 

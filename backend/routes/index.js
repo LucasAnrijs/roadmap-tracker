@@ -19,5 +19,6 @@ router.get('/user/progress', userController.getUserProgress);
 router.post('/user/progress/:roadmapId', userController.updateProgress);
 router.post('/scrape/roadmaps', scraperController.scrapeAllRoadmaps);
 router.post('/scrape/roadmaps/:roadmapId', scraperController.updateRoadmap);
+router.get('/scrape/roadmaps/:roadmapId/nodes/:nodeId', scraperController.scrapeNodeDetail);
 
 module.exports = router;

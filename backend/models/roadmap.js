@@ -30,7 +30,7 @@ const roadmapSchema = new mongoose.Schema({
     },
     type: { 
       type: String, 
-      enum: ['topic', 'subtopic', 'skill'] 
+      enum: ['roadmap', 'topic', 'subtopic', 'skill'] 
     },
     parentId: { 
       type: String, 

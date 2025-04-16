@@ -5,6 +5,8 @@ import apiService from '../../services/api';
 const initialState = {
   roadmaps: [],
   currentRoadmap: null,
+  currentNodeDetail: null,
+  isLoadingNodeDetail: false,
   isLoading: false,
   error: null
 };
@@ -58,6 +60,18 @@ export const updateRoadmapData = createAsyncThunk(
   }
 );
 
+export const fetchNodeDetail = createAsyncThunk(
+  'roadmaps/fetchNodeDetail',
+  async ({ roadmapId, nodeId }, { rejectWithValue }) => {
+    try {
+      const response = await apiService.scraper.scrapeNodeDetail(roadmapId, nodeId);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch node detail');
+    }
+  }
+);
+
 // Roadmap slice
 const roadmapSlice = createSlice({
   name: 'roadmaps',
@@ -65,6 +79,9 @@ const roadmapSlice = createSlice({
   reducers: {
     clearCurrentRoadmap: (state) => {
       state.currentRoadmap = null;
+    },
+    clearNodeDetail: (state) => {
+      state.currentNodeDetail = null;
     },
     clearError: (state) => {
       state.error = null;
@@ -129,9 +146,34 @@ const roadmapSlice = createSlice({
       .addCase(updateRoadmapData.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
+      })
+      
+      // Fetch node detail cases
+      .addCase(fetchNodeDetail.pending, (state) => {
+        state.isLoadingNodeDetail = true;
+        state.error = null;
+      })
+      .addCase(fetchNodeDetail.fulfilled, (state, action) => {
+        state.isLoadingNodeDetail = false;
+        state.currentNodeDetail = action.payload.data;
+        
+        // If we have node resources from the scrape, update them in the current roadmap
+        if (state.currentRoadmap && action.payload.data.node) {
+          const nodeIndex = state.currentRoadmap.nodes.findIndex(
+            node => node.id === action.payload.data.node.id
+          );
+          
+          if (nodeIndex !== -1) {
+            state.currentRoadmap.nodes[nodeIndex].resources = action.payload.data.node.resources;
+          }
+        }
+      })
+      .addCase(fetchNodeDetail.rejected, (state, action) => {
+        state.isLoadingNodeDetail = false;
+        state.error = action.payload;
       });
   }
 });
 
-export const { clearCurrentRoadmap, clearError } = roadmapSlice.actions;
+export const { clearCurrentRoadmap, clearNodeDetail, clearError } = roadmapSlice.actions;
 export default roadmapSlice.reducer;

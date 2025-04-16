@@ -44,15 +44,40 @@ class RoadmapScraper {
       
       // Extract all available roadmaps
       const roadmaps = await page.evaluate(() => {
-        const roadmapCards = document.querySelectorAll('.roadmap-card');
-        return Array.from(roadmapCards).map(card => {
-          const link = card.querySelector('a');
+        // The roadmaps are now in grid containers with role-based and skill-based sections
+        const allRoadmapLinks = document.querySelectorAll('.grid a[href*="/"]');
+        
+        // Process each roadmap link
+        return Array.from(allRoadmapLinks).map(link => {
+          // Get the relative URL
+          const url = link.getAttribute('href');
+          
+          // Check if it's a valid roadmap link (not pointing to external sites or non-roadmap pages)
+          if (!url || url.startsWith('http') || 
+              url === '/roadmaps' || 
+              url === '/best-practices' || 
+              url === '/guides' || 
+              url === '/videos') {
+            return null;
+          }
+          
+          // Get the title from the link text
+          const title = link.textContent.trim();
+          
+          // Find the section heading to determine category
+          let category = 'Uncategorized';
+          const sectionHeading = link.closest('.grid').previousElementSibling;
+          if (sectionHeading && sectionHeading.textContent) {
+            category = sectionHeading.textContent.trim();
+          }
+          
           return {
-            title: card.querySelector('h3')?.textContent.trim(),
-            url: link?.href,
-            description: card.querySelector('p')?.textContent.trim()
+            title: title,
+            url: url.startsWith('/') ? `https://roadmap.sh${url}` : url,
+            description: '', // No description available in the current layout
+            category: category
           };
-        }).filter(item => item.url && item.title);
+        }).filter(item => item && item.url && item.title);
       });
       
       await page.close();
@@ -172,6 +197,32 @@ class RoadmapScraper {
           const targetId = path.getAttribute('data-target');
           
           if (sourceId && targetId) {
+            edges.push({
+              source: sourceId,
+              target: targetId,
+              type: 'connection'
+            });
+          }
+        });
+        
+        return { nodes, edges, isTextBased: false };
+      });
+      
+      // Extract resources
+      const resources = await this.scrapeResources(page, roadmapData.nodes);
+      
+      await page.close();
+      logger.info(`Scraped roadmap with ${roadmapData.nodes.length} nodes and ${roadmapData.edges.length} edges`);
+      
+      return {
+        ...roadmapData,
+        resources
+      };
+    } catch (error) {
+      logger.error(`Error scraping roadmap detail for ${url}:`, error);
+      throw error;
+    }
+  }
             edges.push({
               source: sourceId,
               target: targetId,
